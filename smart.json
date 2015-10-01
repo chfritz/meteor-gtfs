@@ -1,0 +1,9 @@
+{
+  "name": "gtfs",
+  "description": "A meteor version of the gtfs npm package with additional gimicks.",
+  "homepage": "https://github.com/chfritz/meteor-gtfs",
+  "author": "Christian Fritz <> (http://www.cs.toronto.edu/~fritz)",
+  "version": "0.0.1",
+  "git": "https://github.com/chfritz/meteor-gtfs.git",
+  "packages": {}
+}
