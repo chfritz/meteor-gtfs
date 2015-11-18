@@ -53,6 +53,6 @@ Plugin.registerSourceHandler("gtfs.zip", function (compileStep) {
     compileStep.addJavaScript({
         path: path.join(path_part, 'gtfs.' + basename + '.js'),
         sourcePath: compileStep.inputPath,
-        data: "GTFS.importFromZip('" + templateName + "', '" + compileStep._fullInputPath + "');",
+        data: 'GTFS.importFromZip("' + templateName + '", "' + compileStep._fullInputPath.replace(/\\/g, "\\\\") + '");'
     });
 });
