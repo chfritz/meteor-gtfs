@@ -1,9 +1,32 @@
+/**
+ * Imports a GTFS file into MongoCollections appending the agencyKey supplied to each record.function
+ * @param {string} agency - The unique Agency Key that you wish to apply to the records.function
+ * @param {string} zipfile - The path to the zip file which contains all the GTFS files.function
+ * @param {object} options - Options that contain the various options for import. See Options.md for more info
+ */
+ importFromZip = function(agency, zipfile,options) {
 
-// importFromZip = function(agency, zipfile) {
-importFromZip = function(agency, zipfile) {
+    if(options === undefined || options === null )
+    {
+        options = {
+            importFiles:['agency'
+            ,'calendar_dates'
+            ,'calendar'
+            ,'fare_attributes'
+            ,'fare_rules'
+            ,'feed_info'
+            ,'frequencies'
+            ,'routes'
+            ,'stop_times'
+            ,'stops'
+            ,'transfers'
+            ,'trips'
+            ] 
+        };
+    }
 
     Agency.find({agency_key: agency}).count(function(err, count) {
-        if (count > 0) {
+        if (count > 0 ) {
             console.log("skipping import for agency", agency, "-- it is already loaded.");
         } else {
             console.log("importing:", agency, zipfile);
@@ -21,54 +44,54 @@ importFromZip = function(agency, zipfile) {
             var dir = os.tmpdir() + '/gtfs';
 
             var GTFSFiles = [
-                {
-                    fileNameBase: 'agency'
-                    , collection: 'agencies'
-                },
-                {
-                    fileNameBase: 'calendar_dates'
-                    , collection: 'calendardates'
-                },
-                {
-                    fileNameBase: 'calendar'
-                    , collection: 'calendars'
-                },
-                {
-                    fileNameBase: 'fare_attributes'
-                    , collection: 'fareattributes'
-                },
-                {
-                    fileNameBase: 'fare_rules'
-                    , collection: 'farerules'
-                },
-                {
-                    fileNameBase: 'feed_info'
-                    , collection: 'feedinfos'
-                },
-                {
-                    fileNameBase: 'frequencies'
-                    , collection: 'frequencies'
-                },
-                {
-                    fileNameBase: 'routes'
-                    , collection: 'routes'
-                },
-                {
-                    fileNameBase: 'stop_times'
-                    , collection: 'stoptimes'
-                },
-                {
-                    fileNameBase: 'stops'
-                    , collection: 'stops'
-                },
-                {
-                    fileNameBase: 'transfers'
-                    , collection: 'transfers'
-                },
-                {
-                    fileNameBase: 'trips'
-                    , collection: 'trips'
-                }
+            {
+                fileNameBase: 'agency'
+                , collection: 'agencies'
+            },
+            {
+                fileNameBase: 'calendar_dates'
+                , collection: 'calendardates'
+            },
+            {
+                fileNameBase: 'calendar'
+                , collection: 'calendars'
+            },
+            {
+                fileNameBase: 'fare_attributes'
+                , collection: 'fareattributes'
+            },
+            {
+                fileNameBase: 'fare_rules'
+                , collection: 'farerules'
+            },
+            {
+                fileNameBase: 'feed_info'
+                , collection: 'feedinfos'
+            },
+            {
+                fileNameBase: 'frequencies'
+                , collection: 'frequencies'
+            },
+            {
+                fileNameBase: 'routes'
+                , collection: 'routes'
+            },
+            {
+                fileNameBase: 'stop_times'
+                , collection: 'stoptimes'
+            },
+            {
+                fileNameBase: 'stops'
+                , collection: 'stops'
+            },
+            {
+                fileNameBase: 'transfers'
+                , collection: 'transfers'
+            },
+            {
+                fileNameBase: 'trips'
+                , collection: 'trips'
+            }
             ];
 
             //open database and create queue for agency list
@@ -85,11 +108,11 @@ importFromZip = function(agency, zipfile) {
                 // q.push(item); // zip files
                 // console.log(item);
                 // });
-                q.push({key: agency,
+q.push({key: agency,
                         zip: zipfile}); // zip files
 
-                q.drain = function(e) {
-                    console.log('All agencies completed (1 total)');
+q.drain = function(e) {
+    console.log('All agencies completed (1 total)');
                     // db.close();
                     // process.exit();
                 }
@@ -107,30 +130,38 @@ importFromZip = function(agency, zipfile) {
                         removeDatabase,
                         importFiles,
                         postProcess
-                    ], function(e, results){
-                        console.log( e || agency_key + ': Completed')
-                        cb();
-                    });
+                        ], function(e, results){
+                            console.log( e || agency_key + ': Completed')
+                            cb();
+                        });
 
 
                     function unpack(cb) {
                         //do download
                         fs.createReadStream(agency_zip)  // give filename
                         // agency_zip  // give file readstream
-                            .pipe(unzip.Extract({ path: dir }).on('close', cb))
-                            .on('error', handleError);
+                        .pipe(unzip.Extract({ path: dir }).on('close', cb))
+                        .on('error', handleError);
                     }
 
 
                     function removeDatabase(cb) {
                         //remove old db records based on agency_key
                         async.forEach(GTFSFiles, function(GTFSFile, cb){
-                            db.collection(GTFSFile.collection, function(e, collection){
-                                collection.remove({ agency_key: agency_key }, cb);
-                            });
+                            if(options.importFiles.indexOf(GTFSFile.fileNameBase) > 0 )
+                            {
+                                db.collection(GTFSFile.collection, function(e, collection){
+                                    collection.remove({ agency_key: agency_key }, cb);
+                                });
+                            }
+                            else
+                            {
+                                console.log(agency_key + ': ' + ' Skipping ' + GTFSFile.fileNameBase)
+                            }
                         }, function(e){
                             cb(e, 'remove');
                         });
+
                     }
 
 
@@ -143,8 +174,8 @@ importFromZip = function(agency, zipfile) {
                                 console.log(agency_key + ': ' + GTFSFile.fileNameBase + ' Importing data');
                                 db.collection(GTFSFile.collection, function(e, collection){
                                     csv()
-                                        .from.path(filepath, {columns: true})
-                                        .on('record', function(line, index){
+                                    .from.path(filepath, {columns: true})
+                                    .on('record', function(line, index){
                                             //remove null values
                                             for(var key in line){
                                                 if(line[key] === null){
@@ -189,43 +220,43 @@ importFromZip = function(agency, zipfile) {
                                                 if(e) { handleError(e); }
                                             });
                                         })
-                                        .on('end', function(count){
-                                            cb();
-                                        })
-                                        .on('error', handleError);
-                                });
-                            }
-                        }, function(e){
-                            cb(e, 'import');
-                        });
-                    }
+.on('end', function(count){
+    cb();
+})
+.on('error', handleError);
+});
+}
+}, function(e){
+    cb(e, 'import');
+});
+}
 
 
-                    function postProcess(cb) {
-                        console.log(agency_key + ':  Post Processing data');
+function postProcess(cb) {
+    console.log(agency_key + ':  Post Processing data');
 
-                        async.series([
-                            agencyCenter
-                            , longestTrip
-                            , updatedDate
-                        ], function(e, results){
-                            cb();
-                        });
-                    }
-
-
-                    function agencyCenter(cb) {
-                        var agency_center = [
-                            (agency_bounds.ne[0] - agency_bounds.sw[0])/2 + agency_bounds.sw[0]
-                            , (agency_bounds.ne[1] - agency_bounds.sw[1])/2 + agency_bounds.sw[1]
-                        ];
-
-                        db.collection('agencies')
-                            .update({agency_key: agency_key}, {$set: {agency_bounds: agency_bounds, agency_center: agency_center}}, cb);
-                    }
+    async.series([
+        agencyCenter
+        , longestTrip
+        , updatedDate
+        ], function(e, results){
+            cb();
+        });
+}
 
 
-                    function longestTrip(cb) {
+function agencyCenter(cb) {
+    var agency_center = [
+    (agency_bounds.ne[0] - agency_bounds.sw[0])/2 + agency_bounds.sw[0]
+    , (agency_bounds.ne[1] - agency_bounds.sw[1])/2 + agency_bounds.sw[1]
+    ];
+
+    db.collection('agencies')
+    .update({agency_key: agency_key}, {$set: {agency_bounds: agency_bounds, agency_center: agency_center}}, cb);
+}
+
+
+function longestTrip(cb) {
                         /*db.trips.find({agency_key: agency_key}).for.toArray(function(e, trips){
                           async.forEach(trips, function(trip, cb){
                           db.collection('stoptimes', function(e, collection){
@@ -235,23 +266,23 @@ importFromZip = function(agency, zipfile) {
                           cb();
                           }, cb);
                           });
-                          });*/
-                        cb();
-                    }
+});*/
+cb();
+}
 
-                    function updatedDate(cb) {
-                        db.collection('agencies')
-                            .update({agency_key: agency_key}, {$set: {date_last_updated: Date.now()}}, cb);
-                    }
-                }
-            });
+function updatedDate(cb) {
+    db.collection('agencies')
+    .update({agency_key: agency_key}, {$set: {date_last_updated: Date.now()}}, cb);
+}
+}
+});
 
 
-            function handleError(e) {
-                console.error(e || 'Unknown Error');
-                process.exit(1)
-            };
-        }
-    });
+function handleError(e) {
+    console.error(e || 'Unknown Error');
+    process.exit(1)
+};
+}
+});
 
 };
