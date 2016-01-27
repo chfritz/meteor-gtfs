@@ -19,7 +19,7 @@ importFromZip = function(agency, zipfile, options) {
     Agency.find({
         agency_key: agency
     }).count(function(err, count) {
-        if (count > 0 || !options.overwriteAgency) {
+        if (count > 0 && !options.overwriteAgency) {
             console.log("skipping import for agency", agency, "-- it is already loaded.");
         } else {
             console.log("importing:", agency, zipfile);
@@ -156,7 +156,7 @@ importFromZip = function(agency, zipfile, options) {
                             if (GTFSFile && options.importFiles.indexOf(GTFSFile.fileNameBase) >= 0) {
                                 var filepath = path.join(dir, GTFSFile.fileNameBase + '.txt');
                                 if (!fs.existsSync(filepath)) return cb();
-                                console.log(agency_key + ': ' + GTFSFile.fileNameBase + ' Importing data');
+                                //console.log(agency_key + ': ' + GTFSFile.fileNameBase + ' Importing data');
                                 db.collection(GTFSFile.collection, function(e, collection) {
                                     csv()
                                         .from.path(filepath, {
@@ -210,7 +210,7 @@ importFromZip = function(agency, zipfile, options) {
                                             });
                                         }).on('end', function(count) {
                                             cb();
-                                            console.log("Imported: " + count);
+                                            console.log("Imported: " + count + " " + GTFSFile.fileNameBase + " for " + agency_key);
                                         }).on('error', handleError);
                                 });
                             }
