@@ -4,7 +4,7 @@
  * @param {string} zipfile - The path to the zip file which contains all the GTFS files.function
  * @param {object} options - Options that contain the various options for import. See Options.md for more info
  */
-importFromZip = function(agency, zipfile, options) {
+ importFromZip = function(agency, zipfile, options) {
 
     if (options === undefined || options === null) {
         options = {};
@@ -25,14 +25,14 @@ importFromZip = function(agency, zipfile, options) {
             console.log("importing:", agency, zipfile);
 
             var exec = Npm.require('child_process').exec,
-                fs = Npm.require('fs'),
-                path = Npm.require('path'),
-                csv = Npm.require('csv'),
-                async = Npm.require('async'),
-                unzip = Npm.require('unzip'),
-                Db = Npm.require('mongodb').Db,
-                os = Npm.require('os'),
-                q;
+            fs = Npm.require('fs'),
+            path = Npm.require('path'),
+            csv = Npm.require('csv'),
+            async = Npm.require('async'),
+            unzip = Npm.require('unzip'),
+            Db = Npm.require('mongodb').Db,
+            os = Npm.require('os'),
+            q;
 
             var dir = os.tmpdir() + '/gtfs';
 
@@ -72,6 +72,9 @@ importFromZip = function(agency, zipfile, options) {
             }, {
                 fileNameBase: 'trips',
                 collection: 'trips'
+            },{
+                fileNameBase: 'shapes',
+                collection: 'shapes'
             }];
 
             //open database and create queue for agency list
@@ -104,11 +107,11 @@ importFromZip = function(agency, zipfile, options) {
 
                 function importGTFS(task, cb) {
                     var agency_key = task.key,
-                        agency_bounds = {
-                            sw: [],
-                            ne: []
-                        },
-                        agency_zip = task.zip;
+                    agency_bounds = {
+                        sw: [],
+                        ne: []
+                    },
+                    agency_zip = task.zip;
 
                     console.log('Starting ' + agency_key);
 
@@ -117,24 +120,25 @@ importFromZip = function(agency, zipfile, options) {
                         removeDatabase,
                         importFiles,
                         postProcess
-                    ], function(e, results) {
-                        console.log(e || agency_key + ': Completed');
-                        cb();
-                    });
+                        ], function(e, results) {
+                            console.log(e || agency_key + ': Completed');
+                            cb();
+                        });
 
 
                     function unpack(cb) {
                         //do download
+                        console.log("extracting to " + dir);
                         fs.createReadStream(agency_zip) // give filename
                             // agency_zip  // give file readstream
                             .pipe(unzip.Extract({
                                 path: dir
                             }).on('close', cb))
                             .on('error', handleError);
-                    }
+                        }
 
 
-                    function removeDatabase(cb) {
+                        function removeDatabase(cb) {
                         //remove old db records based on agency_key
                         async.forEach(GTFSFiles, function(GTFSFile, cb) {
                             db.collection(GTFSFile.collection, function(e, collection) {
@@ -153,17 +157,22 @@ importFromZip = function(agency, zipfile, options) {
                         //Loop through each file and add agency_key
                         console.log("Start Import Files");
                         async.forEachSeries(GTFSFiles, function(GTFSFile, cb) {
+                            console.log("Importing: " + GTFSFile.fileNameBase + " for " + agency_key);
                             if (GTFSFile && options.importFiles.indexOf(GTFSFile.fileNameBase) >= 0) {
                                 var filepath = path.join(dir, GTFSFile.fileNameBase + '.txt');
-                                if (!fs.existsSync(filepath)) return cb();
+                                if (!fs.existsSync(filepath)) 
+                                {
+                                    console.log("can't import " + GTFSFile.fileNameBase + " GTFS file doesn't exist.");
+                                    return cb();
+                                }
                                 //console.log(agency_key + ': ' + GTFSFile.fileNameBase + ' Importing data');
                                 db.collection(GTFSFile.collection, function(e, collection) {
-                                    console.log("Importing: " + GTFSFile.fileNameBase + " for " + agency_key);
+
                                     csv()
-                                        .from.path(filepath, {
-                                            columns: true
-                                        })
-                                        .on('record', function(line, index) {
+                                    .from.path(filepath, {
+                                        columns: true
+                                    })
+                                    .on('record', function(line, index) {
                                             //remove null values
                                             for (var key in line) {
                                                 if (line[key] === null) {
@@ -209,47 +218,53 @@ importFromZip = function(agency, zipfile, options) {
                                                     handleError(e);
                                                 }
                                             });
+                                            if((index + 1 ) % 100000 === 0){ console.log((index +1 )+ " "+ GTFSFile.fileNameBase+"s");}
                                         }).on('end', function(count) {
                                             cb();
                                             console.log("Imported: " + count + " " + GTFSFile.fileNameBase + " for " + agency_key);
                                         }).on('error', handleError);
-                                });
+                                    });
+                            }
+                            else
+                            {
+                                console.log("Skipping: " + GTFSFile.fileNameBase + " for " + agency_key);
+                                cb();
                             }
                         }, function(e) {
                             cb(e, 'import');
                         });
-                    }
+}
 
 
-                    function postProcess(cb) {
-                        console.log(agency_key + ':  Post Processing data');
+function postProcess(cb) {
+    console.log(agency_key + ':  Post Processing data');
 
-                        async.series([
-                            agencyCenter, longestTrip, updatedDate
-                        ], function(e, results) {
-                            cb();
-                        });
-                    }
-
-
-                    function agencyCenter(cb) {
-                        var agency_center = [
-                            (agency_bounds.ne[0] - agency_bounds.sw[0]) / 2 + agency_bounds.sw[0], (agency_bounds.ne[1] - agency_bounds.sw[1]) / 2 + agency_bounds.sw[1]
-                        ];
-
-                        db.collection('agencies')
-                            .update({
-                                agency_key: agency_key
-                            }, {
-                                $set: {
-                                    agency_bounds: agency_bounds,
-                                    agency_center: agency_center
-                                }
-                            }, cb);
-                    }
+    async.series([
+        agencyCenter, longestTrip, updatedDate
+        ], function(e, results) {
+            cb();
+        });
+}
 
 
-                    function longestTrip(cb) {
+function agencyCenter(cb) {
+    var agency_center = [
+    (agency_bounds.ne[0] - agency_bounds.sw[0]) / 2 + agency_bounds.sw[0], (agency_bounds.ne[1] - agency_bounds.sw[1]) / 2 + agency_bounds.sw[1]
+    ];
+
+    db.collection('agencies')
+    .update({
+        agency_key: agency_key
+    }, {
+        $set: {
+            agency_bounds: agency_bounds,
+            agency_center: agency_center
+        }
+    }, cb);
+}
+
+
+function longestTrip(cb) {
                         /*db.trips.find({agency_key: agency_key}).for.toArray(function(e, trips){
                           async.forEach(trips, function(trip, cb){
                           db.collection('stoptimes', function(e, collection){
@@ -259,29 +274,29 @@ importFromZip = function(agency, zipfile, options) {
                           cb();
                           }, cb);
                           });
-});*/
-                        cb();
-                    }
+                      });*/
+                      cb();
+                  }
 
-                    function updatedDate(cb) {
-                        db.collection('agencies')
-                            .update({
-                                agency_key: agency_key
-                            }, {
-                                $set: {
-                                    date_last_updated: Date.now()
-                                }
-                            }, cb);
-                    }
+                  function updatedDate(cb) {
+                    db.collection('agencies')
+                    .update({
+                        agency_key: agency_key
+                    }, {
+                        $set: {
+                            date_last_updated: Date.now()
+                        }
+                    }, cb);
                 }
-            });
+            }
+        });
 
 
-            function handleError(e) {
-                console.error(e || 'Unknown Error');
-                process.exit(1)
-            };
-        }
-    });
+function handleError(e) {
+    console.error(e || 'Unknown Error');
+    process.exit(1)
+};
+}
+});
 
 };

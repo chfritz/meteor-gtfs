@@ -14,8 +14,10 @@ Defaults are listed here:
                 ,'routes'
                 ,'stop_times'
                 ,'stops'
+                ,'shapes'
                 ,'transfers'
                 ,'trips'
-    ] 
+    ]
+    overwriteAgency: false 
 };
 ```
