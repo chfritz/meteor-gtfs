@@ -158,6 +158,7 @@ importFromZip = function(agency, zipfile, options) {
                                 if (!fs.existsSync(filepath)) return cb();
                                 //console.log(agency_key + ': ' + GTFSFile.fileNameBase + ' Importing data');
                                 db.collection(GTFSFile.collection, function(e, collection) {
+                                    console.log("Importing: " + GTFSFile.fileNameBase + " for " + agency_key);
                                     csv()
                                         .from.path(filepath, {
                                             columns: true
